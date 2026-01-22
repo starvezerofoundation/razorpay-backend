@@ -6,10 +6,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { amount, name, email } = req.body;
+    const { amount } = req.body;
 
-    if (!amount || !name || !email) {
-      return res.status(400).json({ error: "Missing fields" });
+    if (!amount) {
+      return res.status(400).json({ error: "Amount required" });
     }
 
     const razorpay = new Razorpay({
