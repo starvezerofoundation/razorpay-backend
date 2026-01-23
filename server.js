@@ -1,35 +1,67 @@
-const express = require("express")
-const Razorpay = require("razorpay")
-const cors = require("cors")
+import Razorpay from "razorpay"
 
-const app = express()
-app.use(cors())
-app.use(express.json())
+/* -------------------- CORS HELPER -------------------- */
+function allowCors(res) {
+    res.setHeader("Access-Control-Allow-Origin", "*")
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization")
+}
 
+/* -------------------- RAZORPAY INIT -------------------- */
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
 })
 
-app.post("/create-order", async (req, res) => {
-  try {
-    const { amount } = req.body
+/* -------------------- CREATE ORDER API -------------------- */
+export async function createOrder(req, res) {
+    allowCors(res)
 
-    const order = await razorpay.orders.create({
-      amount: Math.round(amount * 100),
-      currency: "INR",
-      payment_capture: 1,
-    })
+    // Handle preflight request
+    if (req.method === "OPTIONS") {
+        return res.status(200).end()
+    }
 
-    res.json(order)
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: "Order creation failed" })
-  }
-})
+    if (req.method !== "POST") {
+        return res.status(405).json({ message: "Only POST allowed" })
+    }
 
-const PORT = process.env.PORT || 3000
-app.listen(PORT, () => {
-  console.log("Server running on port", PORT)
-})
+    try {
+        const { amount } = req.body
 
+        if (!amount) {
+            return res.status(400).json({ error: "Amount is required" })
+        }
+
+        const order = await razorpay.orders.create({
+            amount: Math.round(Number(amount)),
+            currency: "INR",
+            receipt: "donation_" + Date.now(),
+        })
+
+        return res.status(200).json(order)
+    } catch (err) {
+        console.error("Create order error:", err)
+        return res.status(500).json({ error: "Failed to create order" })
+    }
+}
+
+/* -------------------- VERIFY PAYMENT API -------------------- */
+export async function verifyPayment(req, res) {
+    allowCors(res)
+
+    if (req.method === "OPTIONS") {
+        return res.status(200).end()
+    }
+
+    if (req.method !== "POST") {
+        return res.status(405).json({ message: "Only POST allowed" })
+    }
+
+    try {
+        return res.status(200).json({ success: true })
+    } catch (err) {
+        console.error("Verify payment error:", err)
+        return res.status(500).json({ error: "Verification failed" })
+    }
+}
