@@ -1,30 +1,48 @@
-import crypto from "crypto";
+import crypto from "crypto"
+
+/* -------------------- CORS -------------------- */
+function allowCors(res) {
+    res.setHeader("Access-Control-Allow-Origin", "*")
+    res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS")
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type")
+}
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ message: "Only POST allowed" });
-  }
+    allowCors(res)
 
-  try {
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature
-    } = req.body;
+    // ✅ Preflight CORS
+    if (req.method === "OPTIONS") {
+        return res.status(200).end()
+    }
 
-    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    if (req.method !== "POST") {
+        return res.status(405).json({ message: "Only POST allowed" })
+    }
 
-    const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(body)
-      .digest("hex");
+    try {
+        const {
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature,
+        } = req.body
 
-    const success = expectedSignature === razorpay_signature;
+        const body =
+            razorpay_order_id + "|" + razorpay_payment_id
 
-    res.status(200).json({ success });
+        const expectedSignature = crypto
+            .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+            .update(body.toString())
+            .digest("hex")
 
-  } catch (err) {
-    console.error("Verify Error:", err);
-    res.status(500).json({ error: "Verification failed" });
-  }
+        const isValid = expectedSignature === razorpay_signature
+
+        if (!isValid) {
+            return res.status(400).json({ success: false })
+        }
+
+        return res.status(200).json({ success: true })
+    } catch (err) {
+        console.error("Verify error:", err)
+        return res.status(500).json({ success: false })
+    }
 }
